@@ -3,7 +3,7 @@ import {SCENES,EVIDENCE,endingFor,validateState} from './story.mjs';
 const $=s=>document.querySelector(s), app=$('#app'), modal=$('#modal'), toast=$('#toast');
 const KEY='future-signal-state-v1';
 let state=loadState()||{version:1,scene:'wake',ending:null,history:[],evidence:[],started:false};
-let audioOn=false, audioCtx=null, ambience=null;
+let audioOn=true, audioCtx=null, ambience=null, audioStarted=false;
 
 function loadState(){try{return validateState(JSON.parse(localStorage.getItem(KEY)))}catch{return null}}
 function save(){localStorage.setItem(KEY,JSON.stringify(state))}
@@ -128,8 +128,8 @@ function stopAmbience(){
 
 function landing(){
  app.innerHTML=`<section class="hero"><div class="hero-copy"><div class="eyebrow">CASE FILE / 01 · INTERACTIVE ANTI-FRAUD</div><h1>你会相信<br><em>十分钟后的你</em>吗？</h1><p class="hero-intro">一条来自未来的消息，<br>一场还没有发生的骗局。<br><strong>你的每一个选择，都会改写结局。</strong></p><div class="meta-chips"><span><i>◉</i> 悬疑叙事</span><span><i>◌</i> 约 5 分钟</span></div><div class="hero-actions"><button class="primary" id="start">开始调查 <span class="arrow">↗</span></button><button class="secondary" id="continue" ${state.history.length?'':'hidden'}>继续上次调查</button></div><p class="start-note">虚构情境 · 不涉及真实交易 · 可随时退出</p></div><div class="hero-art"><div class="orbit"><span class="orbit-tick">SIGNAL / 21:50:07</span></div><div class="big-time">21:50</div><div class="signal-card"><small>INCOMING / FROM YOURSELF</small><p>不要付第二笔钱。<br><span>— 十分钟后的你</span></p></div><div class="phone"><div class="phone-screen"><div class="phone-island"></div><div class="phone-status"><span>21:40</span><span>▮▮▮ ◇</span></div><div class="lock-date">星期五 · 10月24日</div><div class="lock-time">21:40</div><div class="notification"><header><b>↗ 未来来信</b><span>刚刚</span></header><strong>你有一条来自未来的消息</strong><p>先别付第二笔钱。<br>我知道你刚刚付了 199 元订金...</p></div><div class="phone-bottom">向上滑动以调查</div></div></div><div class="warning-card"><small>WARNING / 02</small><p>你还剩 <b>10:00</b><br>改变这一切。</p></div><div class="art-coordinate">40°N 116°E / SIGNAL LOCKED</div></div></section><section class="intro-strip"><div class="intro-item"><span class="intro-number">01</span><div><h3>像真实聊天一样调查</h3><p>没有标准答案，只有你的判断。</p></div><span class="intro-icon">⌁</span></div><div class="intro-item"><span class="intro-number">02</span><div><h3>打开证据，找到破绽</h3><p>每份材料都藏着一个问题。</p></div><span class="intro-icon">▧</span></div><div class="intro-item"><span class="intro-number">03</span><div><h3>结局复盘每一步</h3><p>把“感觉不对”变成可验证。</p></div><span class="intro-icon">✦</span></div></section>`;
- $('#start').onclick=()=>{try{ensureAudio()}catch{}state={version:1,scene:'wake',ending:null,history:[],evidence:[],started:true};save();renderScene()};
- $('#continue')?.addEventListener('click',()=>{try{ensureAudio()}catch{}renderScene()});
+ $('#start').onclick=()=>{startSoundFromGesture();try{ensureAudio()}catch{}state={version:1,scene:'wake',ending:null,history:[],evidence:[],started:true};save();renderScene()};
+ $('#continue')?.addEventListener('click',()=>{startSoundFromGesture();try{ensureAudio()}catch{}renderScene()});
 }
 
 function renderScene(){
@@ -228,7 +228,14 @@ function wrapCanvas(ctx,text,maxWidth){
  for(const ch of String(text)){const test=line+ch;if(ctx.measureText(test).width>maxWidth&&line){lines.push(line);line=ch}else line=test}
  if(line)lines.push(line);return lines;
 }
-$('#sound-toggle').onclick=()=>{$('#sound-toggle').setAttribute('aria-pressed',String(audioOn=!audioOn));$('#sound-toggle span').textContent=audioOn?'声音开':'声音关';if(audioOn){startAmbience();buzz()}else stopAmbience()};$('#about-button').onclick=()=>{modal.innerHTML=`<div class="modal-inner"><button class="modal-close" aria-label="关闭">×</button><div class="modal-kicker">ABOUT THE EXPERIENCE</div><h2>一条消息，改变一次判断。</h2><p>《十分钟后的你》是一款悬疑叙事式反诈互动 H5。它把“先暂停、再核实、求助”变成一次可以亲手完成的调查。</p><div class="about-grid"><div>悬疑叙事<small>用时间线制造代入感</small></div><div>证据练习<small>从来源和独立渠道核实</small></div><div>AI 陪练<small>把疑问变成可验证的问题</small></div><div>虚构安全<small>无真实链接、无真实付款</small></div></div><p class="modal-caption">参赛作品原型 · FUTURE SIGNAL / 2026</p></div>`;modal.showModal();modal.querySelector('.modal-close').onclick=()=>modal.close()};
+function startSoundFromGesture(){
+ if(!audioOn||audioStarted)return;
+ try{ensureAudio();startAmbience();audioStarted=true;$('#sound-toggle').setAttribute('aria-pressed','true');$('#sound-toggle span').textContent='声音开';}catch{}
+}
+$('#sound-toggle').setAttribute('aria-pressed','true');
+$('#sound-toggle span').textContent='声音开';
+document.addEventListener('pointerdown',startSoundFromGesture,{once:true,passive:true});
+$('#sound-toggle').onclick=()=>{$('#sound-toggle').setAttribute('aria-pressed',String(audioOn=!audioOn));$('#sound-toggle span').textContent=audioOn?'声音开':'声音关';if(audioOn){try{ensureAudio();startAmbience();audioStarted=true;buzz()}catch{}}else stopAmbience()};$('#about-button').onclick=()=>{modal.innerHTML=`<div class="modal-inner"><button class="modal-close" aria-label="关闭">×</button><div class="modal-kicker">ABOUT THE EXPERIENCE</div><h2>一条消息，改变一次判断。</h2><p>《十分钟后的你》是一款悬疑叙事式反诈互动 H5。它把“先暂停、再核实、求助”变成一次可以亲手完成的调查。</p><div class="about-grid"><div>悬疑叙事<small>用时间线制造代入感</small></div><div>证据练习<small>从来源和独立渠道核实</small></div><div>AI 陪练<small>把疑问变成可验证的问题</small></div><div>虚构安全<small>无真实链接、无真实付款</small></div></div><p class="modal-caption">参赛作品原型 · FUTURE SIGNAL / 2026</p></div>`;modal.showModal();modal.querySelector('.modal-close').onclick=()=>modal.close()};
  if(state.started&&state.history.length)renderScene();else landing();
 
 
