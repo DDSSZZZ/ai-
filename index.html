@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0c1014">
+  <meta name="description" content="一条来自十分钟后的消息，一次改写结局的机会。悬疑反诈互动体验。">
+  <title>十分钟后的你 · FUTURE SIGNAL</title>
+  <link rel="icon" href="./favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="ambient" aria-hidden="true"></div>
+  <header class="site-header">
+    <a class="brand" href="./" aria-label="十分钟后的你 首页"><span class="brand-mark">↗</span><span>未来来信<small>FUTURE SIGNAL</small></span></a>
+    <div class="header-actions"><span class="edition">反诈互动实验 / VOL. 01</span><button id="sound-toggle" class="icon-button" aria-label="开启氛围音" aria-pressed="false">♫<span>声音关</span></button><button id="about-button" class="text-button">体验说明 <span>↗</span></button></div>
+  </header>
+  <main id="app"></main>
+  <footer class="site-footer"><span><i class="status-dot"></i> 保持怀疑，也保持连接。</span><span>虚构情境 · 无真实交易 <b>© 2026 FUTURE SIGNAL</b></span></footer>
+  <dialog id="modal"><div id="modal-content"></div></dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="./app.mjs"></script>
+</body>
+</html>

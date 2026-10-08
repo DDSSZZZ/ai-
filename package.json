@@ -1,0 +1,9 @@
+{
+  "name": "future-signal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "十分钟后的你 · 悬疑反诈互动 H5",
+  "scripts": {"start": "node server.mjs", "test": "node --test tests/*.test.mjs"},
+  "engines": {"node": ">=20"}
+}
