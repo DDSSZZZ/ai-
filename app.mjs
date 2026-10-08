@@ -13,35 +13,60 @@ function ensureAudio(){if(!audioCtx)audioCtx=new (window.AudioContext||window.we
 
 function makeSuspenseBuffer(ctx){
  const sr=Math.max(22050,Math.min(44100,ctx.sampleRate)),seconds=24,length=Math.floor(sr*seconds);
- const buffer=ctx.createBuffer(2,length,sr), notes=[196,233.08,261.63,233.08,174.61,196];
- const starts=[2.0,3.8,5.6,8.6,10.4,12.2,16.2,18.0,19.8];
+ const buffer=ctx.createBuffer(2,length,sr);
+ const melody=[146.83,174.61,196.00,174.61,130.81,146.83,164.81,130.81];
+ const bass=[73.42,87.31,98.00,87.31];
+ const beat=0.75;
+
  for(let ch=0;ch<2;ch++){
   const data=buffer.getChannelData(ch);
   for(let i=0;i<length;i++){
    const time=i/sr;
-   const breath=0.5+0.5*Math.sin(2*Math.PI*time/9.5);
-   let v=0.028*Math.sin(2*Math.PI*43*time)*(0.55+0.45*breath);
-   v+=0.013*Math.sin(2*Math.PI*86*time);
-   v+=0.005*Math.sin(2*Math.PI*129*time);
-   const pulsePhase=time%3.2;
-   if(pulsePhase<0.18)v+=0.018*Math.exp(-pulsePhase*18)*Math.sin(2*Math.PI*58*pulsePhase);
-   data[i]=v;
-  }
-  starts.forEach((start,index)=>{
-   const f=notes[index%notes.length],begin=Math.floor(start*sr),count=Math.floor(1.15*sr);
-   for(let j=0;j<count&&begin+j<length;j++){
-    const tt=j/sr;
-    const env=Math.min(tt/0.07,1)*Math.exp(-tt*2.8);
-    data[begin+j]+=0.0105*env*Math.sin(2*Math.PI*f*tt);
-    data[begin+j]+=0.0038*env*Math.sin(2*Math.PI*(f*0.5)*tt);
+   const slow=0.5+0.5*Math.sin(2*Math.PI*time/12);
+   let v=0;
+
+   // Warm low drone.
+   v += 0.045*Math.sin(2*Math.PI*49*time)*(0.72+0.28*slow);
+   v += 0.022*Math.sin(2*Math.PI*98*time);
+   v += 0.010*Math.sin(2*Math.PI*147*time);
+
+   // Rhythmic low pulse every beat.
+   const phase=time%beat;
+   if(phase<0.22){
+    const env=Math.exp(-phase*13);
+    v += 0.055*env*Math.sin(2*Math.PI*58*phase);
+    v += 0.018*env*Math.sin(2*Math.PI*116*phase);
    }
-  });
-  for(let i=0;i<Math.min(length,Math.floor(sr*1.8));i++)data[i]*=i/(sr*1.8);
-  for(let i=length-Math.floor(sr*1.8);i<length;i++)data[i]*=(length-i)/(sr*1.8);
+
+   // Eight-note suspense melody, repeated in phrases.
+   const phraseTime=time%6;
+   const noteIndex=Math.floor(phraseTime/0.75)%melody.length;
+   const within=phraseTime%0.75;
+   const f=melody[noteIndex];
+   const attack=Math.min(within/0.025,1);
+   const release=Math.exp(-within*2.5);
+   const env=attack*release;
+   v += 0.030*env*Math.sin(2*Math.PI*f*within);
+   v += 0.010*env*Math.sin(2*Math.PI*f*2*within);
+
+   // Bass note changes give the piece a clear harmonic movement.
+   const bassPhrase=time%3;
+   const bi=Math.floor(bassPhrase/0.75)%bass.length;
+   const bw=bassPhrase%0.75;
+   const bf=bass[bi];
+   const benv=Math.min(bw/0.035,1)*Math.exp(-bw*2.1);
+   v += 0.032*benv*Math.sin(2*Math.PI*bf*bw);
+
+   // Tiny stereo variation.
+   data[i]=v*(ch===0?1.0:0.92);
+  }
+
+  const fade=Math.floor(sr*1.4);
+  for(let i=0;i<fade;i++)data[i]*=i/fade;
+  for(let i=length-fade;i<length;i++)data[i]*=(length-i)/fade;
  }
  return buffer;
 }
-
 function buzz(){
  if(!audioOn)return;
  const ctx=ensureAudio(),o=ctx.createOscillator(),g=ctx.createGain();
@@ -55,14 +80,19 @@ function startAmbience(){
  const ctx=ensureAudio();if(ambience)return;
  const master=ctx.createGain();
  master.gain.setValueAtTime(0,ctx.currentTime);
- master.gain.linearRampToValueAtTime(.8,ctx.currentTime+2.0);
+ master.gain.linearRampToValueAtTime(1.15,ctx.currentTime+1.6);
  master.connect(ctx.destination);
+
  const source=ctx.createBufferSource();
- source.buffer=makeSuspenseBuffer(ctx);source.loop=true;
- source.connect(master);source.start();
+ source.buffer=makeSuspenseBuffer(ctx);
+ source.loop=true;
+ source.loopStart=0;
+ source.loopEnd=24;
+ source.connect(master);
+ source.start();
+
  ambience={master,source};
 }
-
 function stopAmbience(){
  if(!ambience||!audioCtx)return;
  const current=ambience;ambience=null;
