@@ -14,54 +14,70 @@ function ensureAudio(){if(!audioCtx)audioCtx=new (window.AudioContext||window.we
 function makeSuspenseBuffer(ctx){
  const sr=Math.max(22050,Math.min(44100,ctx.sampleRate)),seconds=24,length=Math.floor(sr*seconds);
  const buffer=ctx.createBuffer(2,length,sr);
- const melody=[146.83,174.61,196.00,174.61,130.81,146.83,164.81,130.81];
- const bass=[73.42,87.31,98.00,87.31];
- const beat=0.75;
+
+ // A short cinematic motif: piano notes over a low ostinato and soft string pad.
+ const piano=[146.83,174.61,196.00,233.08,196.00,174.61,130.81,146.83,
+              164.81,196.00,261.63,233.08,196.00,174.61,146.83,130.81];
+ const bass=[73.42,87.31,98.00,87.31,65.41,73.42,82.41,98.00];
+ const strings=[146.83,174.61,196.00,233.08];
 
  for(let ch=0;ch<2;ch++){
   const data=buffer.getChannelData(ch);
+
   for(let i=0;i<length;i++){
    const time=i/sr;
-   const slow=0.5+0.5*Math.sin(2*Math.PI*time/12);
    let v=0;
 
-   // Warm low drone.
-   v += 0.045*Math.sin(2*Math.PI*49*time)*(0.72+0.28*slow);
-   v += 0.022*Math.sin(2*Math.PI*98*time);
-   v += 0.010*Math.sin(2*Math.PI*147*time);
+   // Deep cinematic bed.
+   const breath=.55+.45*Math.sin(2*Math.PI*time/11.5);
+   v += .050*Math.sin(2*Math.PI*49*time)*(0.72+0.28*breath);
+   v += .018*Math.sin(2*Math.PI*98*time);
+   v += .008*Math.sin(2*Math.PI*147*time);
 
-   // Rhythmic low pulse every beat.
-   const phase=time%beat;
-   if(phase<0.22){
+   // Low rhythmic pulse.
+   const beat=.75, phase=time%beat;
+   if(phase<.22){
     const env=Math.exp(-phase*13);
-    v += 0.055*env*Math.sin(2*Math.PI*58*phase);
-    v += 0.018*env*Math.sin(2*Math.PI*116*phase);
+    v += .060*env*Math.sin(2*Math.PI*58*phase);
+    v += .018*env*Math.sin(2*Math.PI*116*phase);
    }
 
-   // Eight-note suspense melody, repeated in phrases.
-   const phraseTime=time%6;
-   const noteIndex=Math.floor(phraseTime/0.75)%melody.length;
-   const within=phraseTime%0.75;
-   const f=melody[noteIndex];
-   const attack=Math.min(within/0.025,1);
-   const release=Math.exp(-within*2.5);
-   const env=attack*release;
-   v += 0.030*env*Math.sin(2*Math.PI*f*within);
-   v += 0.010*env*Math.sin(2*Math.PI*f*2*within);
+   // Soft string chord: slow-moving sustained tones.
+   const chordTime=time%6;
+   const chordIndex=Math.floor(chordTime/1.5);
+   const sf=strings[chordIndex%strings.length];
+   const chordT=chordTime%1.5;
+   const sEnv=.5+.5*Math.sin(Math.PI*Math.min(chordT/1.5,1));
+   v += .018*sEnv*Math.sin(2*Math.PI*sf*time);
+   v += .009*sEnv*Math.sin(2*Math.PI*(sf*2)*time);
+   v += .004*sEnv*Math.sin(2*Math.PI*(sf*3)*time);
 
-   // Bass note changes give the piece a clear harmonic movement.
-   const bassPhrase=time%3;
-   const bi=Math.floor(bassPhrase/0.75)%bass.length;
-   const bw=bassPhrase%0.75;
-   const bf=bass[bi];
-   const benv=Math.min(bw/0.035,1)*Math.exp(-bw*2.1);
-   v += 0.032*benv*Math.sin(2*Math.PI*bf*bw);
+   // Piano-like melody with a bright attack and decaying body.
+   const phraseTime=time%12;
+   const noteIndex=Math.floor(phraseTime/.75)%piano.length;
+   const within=phraseTime%.75;
+   const pf=piano[noteIndex];
+   const attack=Math.min(within/.012,1);
+   const decay=Math.exp(-within*3.9);
+   const penv=attack*decay;
+   v += .040*penv*Math.sin(2*Math.PI*pf*within);
+   v += .019*penv*Math.sin(2*Math.PI*(pf*2)*within);
+   v += .009*penv*Math.sin(2*Math.PI*(pf*3)*within);
 
-   // Tiny stereo variation.
-   data[i]=v*(ch===0?1.0:0.92);
+   // Low piano octave reinforces the motif without dominating.
+   v += .013*penv*Math.sin(2*Math.PI*(pf*.5)*within);
+
+   // Occasional tension note at the end of each phrase.
+   const tension=time%6;
+   if(tension>5.25){
+    const tt=tension-5.25,tenv=Math.min(tt/.03,1)*Math.exp(-tt*2.6);
+    v += .016*tenv*Math.sin(2*Math.PI*311.13*tt);
+   }
+
+   data[i]=v*(ch===0?1.0:.94);
   }
 
-  const fade=Math.floor(sr*1.4);
+  const fade=Math.floor(sr*1.5);
   for(let i=0;i<fade;i++)data[i]*=i/fade;
   for(let i=length-fade;i<length;i++)data[i]*=(length-i)/fade;
  }
@@ -78,10 +94,18 @@ function buzz(){
 
 function startAmbience(){
  const ctx=ensureAudio();if(ambience)return;
+
+ const compressor=ctx.createDynamicsCompressor();
+ compressor.threshold.value=-22;
+ compressor.knee.value=18;
+ compressor.ratio.value=4;
+ compressor.attack.value=.012;
+ compressor.release.value=.22;
+
  const master=ctx.createGain();
  master.gain.setValueAtTime(0,ctx.currentTime);
- master.gain.linearRampToValueAtTime(1.15,ctx.currentTime+1.6);
- master.connect(ctx.destination);
+ master.gain.linearRampToValueAtTime(2.85,ctx.currentTime+1.6);
+ master.connect(compressor).connect(ctx.destination);
 
  const source=ctx.createBufferSource();
  source.buffer=makeSuspenseBuffer(ctx);
@@ -91,7 +115,7 @@ function startAmbience(){
  source.connect(master);
  source.start();
 
- ambience={master,source};
+ ambience={master,source,compressor};
 }
 function stopAmbience(){
  if(!ambience||!audioCtx)return;
